@@ -16,7 +16,7 @@ Libraries are adapted from:
 
 Credits goes to them.
 
-## BME280
+## BMP280
 
 Bosch's BMP280 humidity sensor is used and the datasheet can be found [here](https://www.bosch-sensortec.com/products/environmental-sensors/pressure-sensors/pressure-sensors-bmp280-1.html).
 
