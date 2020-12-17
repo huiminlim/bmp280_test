@@ -52,6 +52,12 @@
  * running the ASF driver selector tool. Any changes will be discarded.
  */
 
+// From module: CPU specific features
+#include <mega_reset_cause.h>
+
+// From module: Delay routines
+#include <delay.h>
+
 // From module: GPIO - General purpose Input/Output
 #include <gpio.h>
 
@@ -70,5 +76,8 @@
 
 // From module: Part identification macros
 #include <parts.h>
+
+// From module: System Clock Control - MEGA RF A1 implementation
+#include <sysclk.h>
 
 #endif // ASF_H

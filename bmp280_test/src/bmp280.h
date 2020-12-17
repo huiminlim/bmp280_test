@@ -1,5 +1,5 @@
 /*
-    bme280.h
+    bmp280.h
 
     Created: 16/12/2020 4:27:09 PM
     Author: user
@@ -7,54 +7,42 @@
 
 #include <stdint.h>
 
-#define BME_INIT_NO_ERR 1
-#define BME_INIT_ERR 0
+#define BMP280_INIT_NO_ERR 1
+#define BMP280_INIT_ERR 0
 
-#define BME_READ_CAL_DONE 1
-#define BME_IS_READ_CAL 0
+#define BMP280_READ_CAL_DONE 1
+#define BMP280_IS_READ_CAL 0
 
-#define BME_READ_TEMPERATURE_ERR -1
+#define BMP280_READ_TEMPERATURE_ERR -1
+
+#define BMP280_CHIPID 0x58
 
 /*!
     @brief Register addresses
 */
 typedef enum {
-    BME280_REGISTER_DIG_T1 = 0x88,
-    BME280_REGISTER_DIG_T2 = 0x8A,
-    BME280_REGISTER_DIG_T3 = 0x8C,
-
-    BME280_REGISTER_DIG_P1 = 0x8E,
-    BME280_REGISTER_DIG_P2 = 0x90,
-    BME280_REGISTER_DIG_P3 = 0x92,
-    BME280_REGISTER_DIG_P4 = 0x94,
-    BME280_REGISTER_DIG_P5 = 0x96,
-    BME280_REGISTER_DIG_P6 = 0x98,
-    BME280_REGISTER_DIG_P7 = 0x9A,
-    BME280_REGISTER_DIG_P8 = 0x9C,
-    BME280_REGISTER_DIG_P9 = 0x9E,
-
-    BME280_REGISTER_DIG_H1 = 0xA1,
-    BME280_REGISTER_DIG_H2 = 0xE1,
-    BME280_REGISTER_DIG_H3 = 0xE3,
-    BME280_REGISTER_DIG_H4 = 0xE4,
-    BME280_REGISTER_DIG_H5 = 0xE5,
-    BME280_REGISTER_DIG_H6 = 0xE7,
-
-    BME280_REGISTER_CHIPID = 0xD0,
-    BME280_REGISTER_VERSION = 0xD1,
-    BME280_REGISTER_SOFTRESET = 0xE0,
-
-    BME280_REGISTER_CAL26 = 0xE1,		// R calibration stored in 0xE1-0xF0
-
-    BME280_REGISTER_STATUS = 0XF3,
-
-    BME280_REGISTER_CONTROLHUMID = 0xF2,
-    BME280_REGISTER_CONTROL = 0xF4,
-    BME280_REGISTER_CONFIG = 0xF5,
-    BME280_REGISTER_PRESSUREDATA = 0xF7,
-    BME280_REGISTER_TEMPDATA = 0xFA,
-    BME280_REGISTER_HUMIDDATA = 0xFD
-} bme280_registers;
+    BMP280_REGISTER_DIG_T1 = 0x88,
+    BMP280_REGISTER_DIG_T2 = 0x8A,
+    BMP280_REGISTER_DIG_T3 = 0x8C,
+    BMP280_REGISTER_DIG_P1 = 0x8E,
+    BMP280_REGISTER_DIG_P2 = 0x90,
+    BMP280_REGISTER_DIG_P3 = 0x92,
+    BMP280_REGISTER_DIG_P4 = 0x94,
+    BMP280_REGISTER_DIG_P5 = 0x96,
+    BMP280_REGISTER_DIG_P6 = 0x98,
+    BMP280_REGISTER_DIG_P7 = 0x9A,
+    BMP280_REGISTER_DIG_P8 = 0x9C,
+    BMP280_REGISTER_DIG_P9 = 0x9E,
+    BMP280_REGISTER_CHIPID = 0xD0,
+    BMP280_REGISTER_VERSION = 0xD1,
+    BMP280_REGISTER_SOFTRESET = 0xE0,
+    BMP280_REGISTER_CAL26 = 0xE1,				/**< R calibration = 0xE1-0xF0 */
+    BMP280_REGISTER_STATUS = 0xF3,
+    BMP280_REGISTER_CONTROL = 0xF4,
+    BMP280_REGISTER_CONFIG = 0xF5,
+    BMP280_REGISTER_PRESSUREDATA = 0xF7,
+    BMP280_REGISTER_TEMPDATA = 0xFA
+} bmp280_registers;
 
 /**************************************************************************/
 /*!
@@ -62,12 +50,23 @@ typedef enum {
 */
 /**************************************************************************/
 typedef enum {
-    SAMPLING_NONE = 0b000,
-    SAMPLING_X1 = 0b001,
-    SAMPLING_X2 = 0b010,
-    SAMPLING_X4 = 0b011,
-    SAMPLING_X8 = 0b100,
-    SAMPLING_X16 = 0b101
+    /** No over-sampling. */
+    SAMPLING_NONE = 0x00,
+
+    /** 1x over-sampling. */
+    SAMPLING_X1 = 0x01,
+
+    /** 2x over-sampling. */
+    SAMPLING_X2 = 0x02,
+
+    /** 4x over-sampling. */
+    SAMPLING_X4 = 0x03,
+
+    /** 8x over-sampling. */
+    SAMPLING_X8 = 0x04,
+
+    /** 16x over-sampling. */
+    SAMPLING_X16 = 0x05
 } sensor_sampling;
 
 /**************************************************************************/
@@ -76,9 +75,17 @@ typedef enum {
 */
 /**************************************************************************/
 typedef enum {
-    MODE_SLEEP = 0b00,
-    MODE_FORCED = 0b01,
-    MODE_NORMAL = 0b11
+    /** Sleep mode. */
+    MODE_SLEEP = 0x00,
+
+    /** Forced mode. */
+    MODE_FORCED = 0x01,
+
+    /** Normal mode. */
+    MODE_NORMAL = 0x03,
+
+    /** Software reset. */
+    MODE_SOFT_RESET_CODE = 0xB6
 } sensor_mode;
 
 /**************************************************************************/
@@ -87,11 +94,20 @@ typedef enum {
 */
 /**************************************************************************/
 typedef enum {
-    FILTER_OFF = 0b000,
-    FILTER_X2 = 0b001,
-    FILTER_X4 = 0b010,
-    FILTER_X8 = 0b011,
-    FILTER_X16 = 0b100
+    /** No filtering. */
+    FILTER_OFF = 0x00,
+
+    /** 2x filtering. */
+    FILTER_X2 = 0x01,
+
+    /** 4x filtering. */
+    FILTER_X4 = 0x02,
+
+    /** 8x filtering. */
+    FILTER_X8 = 0x03,
+
+    /** 16x filtering. */
+    FILTER_X16 = 0x04
 } sensor_filter;
 
 /**************************************************************************/
@@ -100,14 +116,29 @@ typedef enum {
 */
 /**************************************************************************/
 typedef enum  {
-    STANDBY_MS_0_5 = 0b000,
-    STANDBY_MS_10 = 0b110,
-    STANDBY_MS_20 = 0b111,
-    STANDBY_MS_62_5 = 0b001,
-    STANDBY_MS_125 = 0b010,
-    STANDBY_MS_250 = 0b011,
-    STANDBY_MS_500 = 0b100,
-    STANDBY_MS_1000 = 0b101
+    /** 1 ms standby. */
+    STANDBY_MS_1 = 0x00,
+
+    /** 62.5 ms standby. */
+    STANDBY_MS_63 = 0x01,
+
+    /** 125 ms standby. */
+    STANDBY_MS_125 = 0x02,
+
+    /** 250 ms standby. */
+    STANDBY_MS_250 = 0x03,
+
+    /** 500 ms standby. */
+    STANDBY_MS_500 = 0x04,
+
+    /** 1000 ms standby. */
+    STANDBY_MS_1000 = 0x05,
+
+    /** 2000 ms standby. */
+    STANDBY_MS_2000 = 0x06,
+
+    /** 4000 ms standby. */
+    STANDBY_MS_4000 = 0x07
 } standby_duration;
 
 /**************************************************************************/
@@ -115,27 +146,20 @@ typedef enum  {
     @brief  calibration data struct type definition
 */
 /**************************************************************************/
-struct bme280_calib_data {
-    uint16_t dig_T1; ///< temperature compensation value
-    int16_t dig_T2;  ///< temperature compensation value
-    int16_t dig_T3;  ///< temperature compensation value
+struct bmp280_calib_data {
+    uint16_t dig_T1;			/**< dig_T1 cal register. */
+    int16_t dig_T2;				/**<  dig_T2 cal register. */
+    int16_t dig_T3;				/**< dig_T3 cal register. */
 
-    uint16_t dig_P1; ///< pressure compensation value
-    int16_t dig_P2;  ///< pressure compensation value
-    int16_t dig_P3;  ///< pressure compensation value
-    int16_t dig_P4;  ///< pressure compensation value
-    int16_t dig_P5;  ///< pressure compensation value
-    int16_t dig_P6;  ///< pressure compensation value
-    int16_t dig_P7;  ///< pressure compensation value
-    int16_t dig_P8;  ///< pressure compensation value
-    int16_t dig_P9;  ///< pressure compensation value
-
-    uint8_t dig_H1; ///< humidity compensation value
-    int16_t dig_H2; ///< humidity compensation value
-    uint8_t dig_H3; ///< humidity compensation value
-    int16_t dig_H4; ///< humidity compensation value
-    int16_t dig_H5; ///< humidity compensation value
-    int8_t dig_H6;  ///< humidity compensation value
+    uint16_t dig_P1;			/**< dig_P1 cal register. */
+    int16_t dig_P2;				/**< dig_P2 cal register. */
+    int16_t dig_P3;				/**< dig_P3 cal register. */
+    int16_t dig_P4;				/**< dig_P4 cal register. */
+    int16_t dig_P5;				/**< dig_P5 cal register. */
+    int16_t dig_P6;				/**< dig_P6 cal register. */
+    int16_t dig_P7;				/**< dig_P7 cal register. */
+    int16_t dig_P8;				/**< dig_P8 cal register. */
+    int16_t dig_P9;				/**< dig_P9 cal register. */
 } ;
 
 /**************************************************************************/
@@ -208,34 +232,10 @@ struct ctrl_meas {
     //unsigned int get() { return (osrs_t << 5) | (osrs_p << 2) | mode; }
 };
 
-/**************************************************************************/
-/*!
-    @brief  ctrl_hum register
-*/
-/**************************************************************************/
-struct ctrl_hum {
-    /// unused - don't set
-    unsigned int none;
-
-    // pressure oversampling
-    // 000 = skipped
-    // 001 = x1
-    // 010 = x2
-    // 011 = x4
-    // 100 = x8
-    // 101 and above = x16
-    unsigned int osrs_h;
-
-    /// @return combined ctrl hum register
-    // NOTE: C structs cannot have functions, so this function is not used
-    //unsigned int get() { return (osrs_h); }
-};
-
-
 
 /*=========================================================================*/
 
-int bme280_init(void);
+int bmp280_init(void);
 uint8_t read8(uint8_t reg);
 void write8 (uint8_t reg, uint8_t value);
 uint16_t read16(uint8_t reg);
@@ -244,9 +244,8 @@ int16_t readS16(uint8_t reg) ;
 int16_t readS16_LE(uint8_t reg);
 uint32_t read24(uint8_t reg);
 uint8_t spixfer(uint8_t x);
-int is_reading_calibration(void);
 void read_coefficients(void);
 void set_sampling(sensor_mode mode, sensor_sampling temp_sampling,
-                  sensor_sampling press_sampling, sensor_sampling hum_sampling,
-                  sensor_filter filter, standby_duration duration);
-float bme280_read_temperature(void);
+                  sensor_sampling press_sampling, sensor_filter filter, standby_duration duration);
+int32_t bmp280_read_temperature(void);
+int32_t bmp280_read_pressure(void);

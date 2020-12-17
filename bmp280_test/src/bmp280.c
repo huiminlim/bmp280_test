@@ -1,17 +1,17 @@
 /*
-    bme280.c
+    bmp280.c
 
     Created: 16/12/2020 4:27:01 PM
     Author: user
 */
 
-#include <bme280.h>
+#include <bmp280.h>
 #include <spi.h>
 #include <uart.h>
 #include <delay.h>
 
 // Structs defined
-struct bme280_calib_data bme280_calib_data_read;
+struct bmp280_calib_data bmp280_calib_data_read;
 
 struct config config_reg = {
     .t_sb = 3,					///< inactive duration (standby time) in normal mode
@@ -26,36 +26,21 @@ struct ctrl_meas meas_reg = {
     .mode = 2					///< device mode
 };								//!< measurement register object
 
-struct ctrl_hum hum_reg = {
-    .none = 5,
-    .osrs_h = 3					///< pressure oversampling
-};								//!< hum register object
+int32_t t_fine = 0;
 
 /*
     This function verifies if sensor is initialized
     Assumes that SPI has been initialized already
 */
-int bme280_init(void) {
-    // Check if read successfully from sensor ID
-    //uint8_t sensor_id = read8(BME280_REGISTER_CHIPID);
+int bmp280_init(void) {
 
-    //printf("Sensor ID: 0x%x\r\n", sensor_id);
+    //Check if read successfully from sensor ID
+    uint8_t sensor_id = read8(BMP280_REGISTER_CHIPID);
 
-    //if (sensor_id != 0x60) {
-    //    return BME_INIT_ERR;
-    //}
+    printf("Sensor ID: 0x%x\r\n", sensor_id);
 
-
-    // Reset device with soft-reset
-    // Make sure that IIR is off, etc
-    write8(BME280_REGISTER_SOFTRESET, 0xB6);
-
-    // Wait for device to wake up
-    delay_ms(10);
-
-    // If the chip is still reading calibration, delay
-    while (is_reading_calibration() != BME_READ_CAL_DONE) {
-        delay_ms(100);
+    if (sensor_id != BMP280_CHIPID) {
+        return BMP280_INIT_ERR;
     }
 
     // read trimming parameters
@@ -63,87 +48,98 @@ int bme280_init(void) {
     read_coefficients();
 
     // Set default sampling
-    set_sampling(MODE_NORMAL, SAMPLING_X16,
-                 SAMPLING_X16, SAMPLING_X16, FILTER_OFF,
-                 STANDBY_MS_0_5);
+    set_sampling(MODE_NORMAL, SAMPLING_X2, SAMPLING_X16, FILTER_X16, STANDBY_MS_500);
 
     delay_ms(200);
 
-    return BME_INIT_NO_ERR;
+    return BMP280_INIT_NO_ERR;
 }
 
 /*!
      @brief  Returns the temperature from the sensor
-     @returns the temperature read from the device
+     @returns the temperature read from the device in 4 digits (XX.YY = XXYY)
 */
-float bme280_read_temperature(void) {
+int32_t bmp280_read_temperature(void) {
     int32_t var1, var2;
-    int32_t adc_T = read24(BME280_REGISTER_TEMPDATA);
-
-    // value in case temp measurement was disabled
-    if (adc_T == 0x800000) {
-        return BME_READ_TEMPERATURE_ERR;
-    }
+    int32_t adc_T = read24(BMP280_REGISTER_TEMPDATA);
+    //printf("adc: %ld\r\n", adc_T);
 
     // Problem is here
     adc_T = (adc_T >> 4);
 
-    printf("adc: %ld\r\n", adc_T);
+    //printf("adc: %ld\r\n", adc_T);
 
     // Calibrate the temperature sensor data
-    var1 = ((((adc_T >> 3) - ((int32_t) bme280_calib_data_read.dig_T1 << 1))) * ((
-                int32_t) bme280_calib_data_read.dig_T2)) >> 11;
+    var1 = ((((adc_T >> 3) - ((int32_t)bmp280_calib_data_read.dig_T1 << 1))) *
+            ((int32_t)bmp280_calib_data_read.dig_T2)) >> 11;
 
-    var2 = (((((adc_T >> 4) - ((int32_t) bme280_calib_data_read.dig_T1)) * (( adc_T >> 4) - ((
-                  int32_t) bme280_calib_data_read.dig_T1))) >> 12) * ((int32_t) bme280_calib_data_read.dig_T3)) >> 14;
+    var2 = (((((adc_T >> 4) - ((int32_t)bmp280_calib_data_read.dig_T1)) * ((adc_T >> 4) - ((
+                  int32_t)bmp280_calib_data_read.dig_T1))) >>
+             12) * ((int32_t)bmp280_calib_data_read.dig_T3)) >> 14;
 
-    //!< add to compensate temp readings and in turn
-    //!< to pressure and humidity readings
-    int32_t t_fine_adjust = 0;
+    printf("Prev t_fine: %ld\r\n", t_fine);
+    t_fine = var1 + var2;
+    printf("Curr t_fine: %ld\r\n", t_fine);
+    int32_t T = (t_fine * 5 + 128) >> 8;
 
-    int32_t t_fine = var1 + var2 + t_fine_adjust;
-    float T = (t_fine * 5 + 128) >> 8;
-    return T / 100;
+    printf("T: %ld\r\n", T);
+    return T;
 }
 
-/*
-    This function checks if device is still busy reading calibration
+/*!
+    Reads the barometric pressure from the device.
+    @return Barometric pressure in Pa.
 */
-int is_reading_calibration(void) {
-    uint8_t read_status = read8(BME280_REGISTER_STATUS);
+int64_t bmp280_read_pressure(void) {
+    int64_t var1, var2, p;
 
-    if ((read_status & (1 << 0)) == 0) {
-        return BME_IS_READ_CAL;
+    // Must be done first to get the t_fine variable set up
+    bmp280_read_temperature();
+
+    int32_t adc_P = read24(BMP280_REGISTER_PRESSUREDATA);
+    adc_P >>= 4;
+
+    var1 = ((int64_t)t_fine) - 128000;
+    var2 = var1 * var1 * (int64_t) bmp280_calib_data_read.dig_P6;
+    var2 = var2 + ((var1 * (int64_t) bmp280_calib_data_read.dig_P5) << 17);
+    var2 = var2 + (((int64_t) bmp280_calib_data_read.dig_P4) << 35);
+    var1 = ((var1 * var1 * (int64_t )bmp280_calib_data_read.dig_P3) >> 8) +
+           ((var1 * (int64_t) bmp280_calib_data_read.dig_P2) << 12);
+    var1 =
+        (((((int64_t)1) << 47) + var1)) * ((int64_t) bmp280_calib_data_read.dig_P1) >> 33;
+
+    if (var1 == 0) {
+        return 0; // avoid exception caused by division by zero
     }
 
-    return BME_READ_CAL_DONE;
+    p = 1048576 - adc_P;
+    p = (((p << 31) - var2) * 3125) / var1;
+    var1 = (((int64_t) bmp280_calib_data_read.dig_P9) * (p >> 13) * (p >> 13)) >> 25;
+    var2 = (((int64_t) bmp280_calib_data_read.dig_P8) * p) >> 19;
+
+    p = ((p + var1 + var2) >> 8) + (((int64_t) bmp280_calib_data_read.dig_P7) << 4);
+
+    printf("p = %lf", p);
+    return p;
 }
 
 /*!
      @brief  Reads the factory-set coefficients
 */
 void read_coefficients(void) {
-    bme280_calib_data_read.dig_T1 = read16_LE(BME280_REGISTER_DIG_T1);
-    bme280_calib_data_read.dig_T2 = readS16_LE(BME280_REGISTER_DIG_T2);
-    bme280_calib_data_read.dig_T3 = readS16_LE(BME280_REGISTER_DIG_T3);
-    bme280_calib_data_read.dig_P1 = read16_LE(BME280_REGISTER_DIG_P1);
-    bme280_calib_data_read.dig_P2 = readS16_LE(BME280_REGISTER_DIG_P2);
-    bme280_calib_data_read.dig_P3 = readS16_LE(BME280_REGISTER_DIG_P3);
-    bme280_calib_data_read.dig_P4 = readS16_LE(BME280_REGISTER_DIG_P4);
-    bme280_calib_data_read.dig_P5 = readS16_LE(BME280_REGISTER_DIG_P5);
-    bme280_calib_data_read.dig_P6 = readS16_LE(BME280_REGISTER_DIG_P6);
-    bme280_calib_data_read.dig_P7 = readS16_LE(BME280_REGISTER_DIG_P7);
-    bme280_calib_data_read.dig_P8 = readS16_LE(BME280_REGISTER_DIG_P8);
-    bme280_calib_data_read.dig_P9 = readS16_LE(BME280_REGISTER_DIG_P9);
-    bme280_calib_data_read.dig_H1 = read8(BME280_REGISTER_DIG_H1);
-    bme280_calib_data_read.dig_H2 = readS16_LE(BME280_REGISTER_DIG_H2);
-    bme280_calib_data_read.dig_H3 = read8(BME280_REGISTER_DIG_H3);
-    bme280_calib_data_read.dig_H4 = ((int8_t)read8(BME280_REGISTER_DIG_H4) << 4) | (read8(
-                                        BME280_REGISTER_DIG_H4 + 1) & 0xF);
-    bme280_calib_data_read.dig_H5 = ((int8_t)read8(BME280_REGISTER_DIG_H5 + 1) << 4) | (read8(
-                                        BME280_REGISTER_DIG_H5) >> 4);
-    bme280_calib_data_read.dig_H6 = (int8_t)read8(
-                                        BME280_REGISTER_DIG_H6);
+    bmp280_calib_data_read.dig_T1 = read16_LE(BMP280_REGISTER_DIG_T1);
+    bmp280_calib_data_read.dig_T2 = readS16_LE(BMP280_REGISTER_DIG_T2);
+    bmp280_calib_data_read.dig_T3 = readS16_LE(BMP280_REGISTER_DIG_T3);
+
+    bmp280_calib_data_read.dig_P1 = read16_LE(BMP280_REGISTER_DIG_P1);
+    bmp280_calib_data_read.dig_P2 = readS16_LE(BMP280_REGISTER_DIG_P2);
+    bmp280_calib_data_read.dig_P3 = readS16_LE(BMP280_REGISTER_DIG_P3);
+    bmp280_calib_data_read.dig_P4 = readS16_LE(BMP280_REGISTER_DIG_P4);
+    bmp280_calib_data_read.dig_P5 = readS16_LE(BMP280_REGISTER_DIG_P5);
+    bmp280_calib_data_read.dig_P6 = readS16_LE(BMP280_REGISTER_DIG_P6);
+    bmp280_calib_data_read.dig_P7 = readS16_LE(BMP280_REGISTER_DIG_P7);
+    bmp280_calib_data_read.dig_P8 = readS16_LE(BMP280_REGISTER_DIG_P8);
+    bmp280_calib_data_read.dig_P9 = readS16_LE(BMP280_REGISTER_DIG_P9);
 }
 
 /*!
@@ -161,36 +157,25 @@ void read_coefficients(void) {
 void set_sampling(sensor_mode mode,
                   sensor_sampling temp_sampling,
                   sensor_sampling press_sampling,
-                  sensor_sampling hum_sampling,
                   sensor_filter filter, standby_duration duration) {
 
     meas_reg.mode = mode;
     meas_reg.osrs_t = temp_sampling;
     meas_reg.osrs_p = press_sampling;
 
-    hum_reg.osrs_h = hum_sampling;
-
     config_reg.filter = filter;
     config_reg.t_sb = duration;
-
-    // making sure sensor is in sleep mode before setting configuration
-    // as it otherwise may be ignored
-    write8(BME280_REGISTER_CONTROL, MODE_SLEEP);
 
     // you must make sure to also set REGISTER_CONTROL after setting the
     // CONTROLHUMID register, otherwise the values won't be applied (see
     // DS 5.4.3)
-    //write8(BME280_REGISTER_CONTROLHUMID, _humReg.get());
-    unsigned int hum_reg_val = hum_reg.osrs_h;
-    write8(BME280_REGISTER_CONTROLHUMID, hum_reg_val);
-
     //write8(BME280_REGISTER_CONFIG, _configReg.get());
     unsigned int config_reg_val = ((config_reg.t_sb << 5) | (config_reg.filter << 2) | config_reg.spi3w_en);
-    write8(BME280_REGISTER_CONFIG, config_reg_val);
+    write8(BMP280_REGISTER_CONFIG, config_reg_val);
 
     //write8(BME280_REGISTER_CONTROL, _measReg.get());
     unsigned int meas_reg_val = ((meas_reg.osrs_t << 5) | (meas_reg.osrs_p << 2) | meas_reg.mode);
-    write8(BME280_REGISTER_CONTROL, meas_reg_val);
+    write8(BMP280_REGISTER_CONTROL, meas_reg_val);
 }
 
 /*
@@ -208,7 +193,7 @@ uint8_t read8(uint8_t reg) {
 
     // SS set to high - de-select slave
     ioport_set_pin_high(SPI_HARDWARE_SS);
-    //spi_end_txn();
+    spi_end_txn();
 
     return value;
 }
@@ -229,7 +214,7 @@ void write8 (uint8_t reg, uint8_t value) {
 
     // SS set to high - de-select slave
     ioport_set_pin_high(SPI_HARDWARE_SS);
-    //spi_end_txn();
+    spi_end_txn();
 }
 
 /*!
@@ -273,7 +258,6 @@ int16_t readS16(uint8_t reg) {
     return (int16_t)read16(reg);
 }
 
-
 /*!
      @brief  Reads a signed little endian 16 bit value over I2C or SPI
      @param reg the register address to read from
@@ -298,9 +282,9 @@ uint32_t read24(uint8_t reg) {
     // read, bit 7 high
     spixfer(reg | 0x80);
     value = spixfer(0);
-    value <<= 8;
+    value = (value << 8);
     value |= spixfer(0);
-    value <<= 8;
+    value = (value << 8);
     value |= spixfer(0);
 
     // SS set to high - de-select slave

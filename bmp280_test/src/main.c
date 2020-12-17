@@ -1,7 +1,7 @@
 #include <asf.h>
 #include <spi.h>
 #include <uart.h>
-#include <bme280.h>
+#include <bmp280.h>
 
 // Print all temp, pressure, altitude and humidity values
 void print_all_values(void);
@@ -17,13 +17,13 @@ int main (void) {
     spi_init();
 
     printf("----- Default testing -----\r\n");
-    uint8_t sensor_id = read8(BME280_REGISTER_CHIPID);
+    uint8_t sensor_id = read8(BMP280_REGISTER_CHIPID);
     printf("Sensor ID: 0x%x\r\n", sensor_id);
 
-    if (sensor_id == 0x58) {
-        int ret = bme280_init();
+    if (sensor_id == BMP280_CHIPID) {
+        int ret = bmp280_init();
 
-        if (ret == BME_INIT_NO_ERR) {
+        if (ret == BMP280_INIT_NO_ERR) {
             printf("Sensor Initialized\r\n");
         }
         else {
@@ -38,11 +38,13 @@ int main (void) {
         }
     }
 
-    else while (1);
+    else
+        while (1);
 }
 
 void print_all_values(void) {
-    char c[50]; //size of the number
-    sprintf(c, "%f", bme280_read_temperature());
-    printf("Temperature: %s\r\n", c);
+    char str[6];
+    int32_t temp = bmp280_read_temperature();
+    snprintf(str, sizeof(str), "%ld.%ld", (temp - temp % 100) / 100, temp % 100);
+    printf("Temperature: %s\r\n", str);
 }
