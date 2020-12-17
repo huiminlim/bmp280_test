@@ -24,6 +24,7 @@ typedef enum {
     BMP280_REGISTER_DIG_T1 = 0x88,
     BMP280_REGISTER_DIG_T2 = 0x8A,
     BMP280_REGISTER_DIG_T3 = 0x8C,
+
     BMP280_REGISTER_DIG_P1 = 0x8E,
     BMP280_REGISTER_DIG_P2 = 0x90,
     BMP280_REGISTER_DIG_P3 = 0x92,
@@ -33,6 +34,7 @@ typedef enum {
     BMP280_REGISTER_DIG_P7 = 0x9A,
     BMP280_REGISTER_DIG_P8 = 0x9C,
     BMP280_REGISTER_DIG_P9 = 0x9E,
+
     BMP280_REGISTER_CHIPID = 0xD0,
     BMP280_REGISTER_VERSION = 0xD1,
     BMP280_REGISTER_SOFTRESET = 0xE0,
@@ -248,4 +250,4 @@ void read_coefficients(void);
 void set_sampling(sensor_mode mode, sensor_sampling temp_sampling,
                   sensor_sampling press_sampling, sensor_filter filter, standby_duration duration);
 int32_t bmp280_read_temperature(void);
-int32_t bmp280_read_pressure(void);
+int64_t bmp280_read_pressure(void);

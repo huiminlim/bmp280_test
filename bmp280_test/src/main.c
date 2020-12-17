@@ -16,30 +16,29 @@ int main (void) {
     // Sensors initialization
     spi_init();
 
+    delay_ms(1000);
+
     printf("----- Default testing -----\r\n");
-    uint8_t sensor_id = read8(BMP280_REGISTER_CHIPID);
-    printf("Sensor ID: 0x%x\r\n", sensor_id);
+    //uint8_t sensor_id = read8(BMP280_REGISTER_CHIPID);
+    //printf("Sensor ID: 0x%x\r\n", sensor_id);
 
-    if (sensor_id == BMP280_CHIPID) {
-        int ret = bmp280_init();
+    //delay_ms(1000);
 
-        if (ret == BMP280_INIT_NO_ERR) {
-            printf("Sensor Initialized\r\n");
-        }
-        else {
-            printf("Sensor initialization failed!\r\n");
+    int ret = bmp280_init();
 
-            while (1);
-        }
+    if (ret == BMP280_INIT_NO_ERR) {
+        printf("Sensor Initialized\r\n");
+    }
+    else {
+        printf("Sensor initialization failed!\r\n");
 
-        while (1) {
-            print_all_values();
-            delay_ms(10000);
-        }
+        while (1);
     }
 
-    else
-        while (1);
+    while (1) {
+        print_all_values();
+        delay_ms(10000);
+    }
 }
 
 void print_all_values(void) {

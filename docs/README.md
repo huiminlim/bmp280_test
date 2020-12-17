@@ -29,3 +29,11 @@ They include:
 * [Delay Routine](https://asf.microchip.com/docs/latest/saml21/html/group__group__common__services__delay.html)
 
 * [IOPORT Service](https://asf.microchip.com/docs/latest/saml21/html/group__ioport__group.html#gabc09edad7c3187dec63ce47e6f1b3c51)
+
+## Expected Output
+
+Currently, only the temperature reading can be obtained as the FYP only requires the temperature reading.
+
+The output should look like this:
+
+![Capture.PNG][Expected output]

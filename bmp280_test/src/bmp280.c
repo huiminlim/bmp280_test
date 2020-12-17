@@ -48,7 +48,7 @@ int bmp280_init(void) {
     read_coefficients();
 
     // Set default sampling
-    set_sampling(MODE_NORMAL, SAMPLING_X2, SAMPLING_X16, FILTER_X16, STANDBY_MS_500);
+    //set_sampling(MODE_NORMAL, SAMPLING_X2, SAMPLING_X16, FILTER_X16, STANDBY_MS_500);
 
     delay_ms(200);
 
@@ -77,12 +77,12 @@ int32_t bmp280_read_temperature(void) {
                   int32_t)bmp280_calib_data_read.dig_T1))) >>
              12) * ((int32_t)bmp280_calib_data_read.dig_T3)) >> 14;
 
-    printf("Prev t_fine: %ld\r\n", t_fine);
+    //printf("Prev t_fine: %ld\r\n", t_fine);
     t_fine = var1 + var2;
-    printf("Curr t_fine: %ld\r\n", t_fine);
+    //printf("Curr t_fine: %ld\r\n", t_fine);
     int32_t T = (t_fine * 5 + 128) >> 8;
 
-    printf("T: %ld\r\n", T);
+    //printf("T: %ld\r\n", T);
     return T;
 }
 
@@ -119,7 +119,7 @@ int64_t bmp280_read_pressure(void) {
 
     p = ((p + var1 + var2) >> 8) + (((int64_t) bmp280_calib_data_read.dig_P7) << 4);
 
-    printf("p = %lf", p);
+    //printf("p = %ld", p);
     return p;
 }
 
@@ -131,15 +131,19 @@ void read_coefficients(void) {
     bmp280_calib_data_read.dig_T2 = readS16_LE(BMP280_REGISTER_DIG_T2);
     bmp280_calib_data_read.dig_T3 = readS16_LE(BMP280_REGISTER_DIG_T3);
 
-    bmp280_calib_data_read.dig_P1 = read16_LE(BMP280_REGISTER_DIG_P1);
-    bmp280_calib_data_read.dig_P2 = readS16_LE(BMP280_REGISTER_DIG_P2);
-    bmp280_calib_data_read.dig_P3 = readS16_LE(BMP280_REGISTER_DIG_P3);
-    bmp280_calib_data_read.dig_P4 = readS16_LE(BMP280_REGISTER_DIG_P4);
-    bmp280_calib_data_read.dig_P5 = readS16_LE(BMP280_REGISTER_DIG_P5);
-    bmp280_calib_data_read.dig_P6 = readS16_LE(BMP280_REGISTER_DIG_P6);
-    bmp280_calib_data_read.dig_P7 = readS16_LE(BMP280_REGISTER_DIG_P7);
-    bmp280_calib_data_read.dig_P8 = readS16_LE(BMP280_REGISTER_DIG_P8);
-    bmp280_calib_data_read.dig_P9 = readS16_LE(BMP280_REGISTER_DIG_P9);
+    printf("\r\nbmp280_calib_data_read.dig_T1: %d\r\n", bmp280_calib_data_read.dig_T1);
+    printf("bmp280_calib_data_read.dig_T2: %d\r\n", bmp280_calib_data_read.dig_T2);
+    printf("bmp280_calib_data_read.dig_T3: %d\r\n\r\n", bmp280_calib_data_read.dig_T3);
+
+    //bmp280_calib_data_read.dig_P1 = read16_LE(BMP280_REGISTER_DIG_P1);
+    //bmp280_calib_data_read.dig_P2 = readS16_LE(BMP280_REGISTER_DIG_P2);
+    //bmp280_calib_data_read.dig_P3 = readS16_LE(BMP280_REGISTER_DIG_P3);
+    //bmp280_calib_data_read.dig_P4 = readS16_LE(BMP280_REGISTER_DIG_P4);
+    //bmp280_calib_data_read.dig_P5 = readS16_LE(BMP280_REGISTER_DIG_P5);
+    //bmp280_calib_data_read.dig_P6 = readS16_LE(BMP280_REGISTER_DIG_P6);
+    //bmp280_calib_data_read.dig_P7 = readS16_LE(BMP280_REGISTER_DIG_P7);
+    //bmp280_calib_data_read.dig_P8 = readS16_LE(BMP280_REGISTER_DIG_P8);
+    //bmp280_calib_data_read.dig_P9 = readS16_LE(BMP280_REGISTER_DIG_P9);
 }
 
 /*!
@@ -165,6 +169,26 @@ void set_sampling(sensor_mode mode,
 
     config_reg.filter = filter;
     config_reg.t_sb = duration;
+
+    if (meas_reg.mode == MODE_NORMAL) {
+        printf("Mode correct\r\n");
+    }
+
+    if (meas_reg.osrs_t == SAMPLING_X2) {
+        printf("Temp sampling correct\r\n");
+    }
+
+    if (meas_reg.osrs_p == SAMPLING_X16) {
+        printf("Pressure sampling correct\r\n");
+    }
+
+    if (config_reg.filter == FILTER_X16) {
+        printf("Filtering correct\r\n");
+    }
+
+    if (config_reg.t_sb == STANDBY_MS_500) {
+        printf("Standby time correct\r\n");
+    }
 
     // you must make sure to also set REGISTER_CONTROL after setting the
     // CONTROLHUMID register, otherwise the values won't be applied (see
@@ -193,7 +217,7 @@ uint8_t read8(uint8_t reg) {
 
     // SS set to high - de-select slave
     ioport_set_pin_high(SPI_HARDWARE_SS);
-    spi_end_txn();
+    //spi_end_txn();
 
     return value;
 }
@@ -214,7 +238,7 @@ void write8 (uint8_t reg, uint8_t value) {
 
     // SS set to high - de-select slave
     ioport_set_pin_high(SPI_HARDWARE_SS);
-    spi_end_txn();
+    //spi_end_txn();
 }
 
 /*!
@@ -234,7 +258,7 @@ uint16_t read16(uint8_t reg) {
 
     // SS set to high - de-select slave
     ioport_set_pin_high(SPI_HARDWARE_SS);
-    spi_end_txn();
+    //spi_end_txn();
 
     return value;
 }
@@ -289,7 +313,7 @@ uint32_t read24(uint8_t reg) {
 
     // SS set to high - de-select slave
     ioport_set_pin_high(SPI_HARDWARE_SS);
-    spi_end_txn();
+    //spi_end_txn();
 
     return value;
 }
