@@ -36,4 +36,4 @@ Currently, only the temperature reading can be obtained as the FYP only requires
 
 The output should look like this:
 
-![Capture.PNG][Expected output]
+![Expected output](Capture.PNG)
