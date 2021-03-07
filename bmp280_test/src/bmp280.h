@@ -6,6 +6,9 @@
 */
 
 #include <stdint.h>
+#include <spi.h>
+#include <uart.h>
+#include <delay.h>
 
 #define BMP280_INIT_NO_ERR 1
 #define BMP280_INIT_ERR 0
@@ -20,128 +23,121 @@
 /*!
     @brief Register addresses
 */
-typedef enum {
-    BMP280_REGISTER_DIG_T1 = 0x88,
-    BMP280_REGISTER_DIG_T2 = 0x8A,
-    BMP280_REGISTER_DIG_T3 = 0x8C,
+#define BMP280_REGISTER_DIG_T1 0x88
+#define BMP280_REGISTER_DIG_T2 0x8A
+#define BMP280_REGISTER_DIG_T3 0x8C
+#define BMP280_REGISTER_DIG_P1 0x8E
+#define BMP280_REGISTER_DIG_P2 0x90
+#define BMP280_REGISTER_DIG_P3 0x92
+#define BMP280_REGISTER_DIG_P4 0x94
+#define BMP280_REGISTER_DIG_P5 0x96
+#define BMP280_REGISTER_DIG_P6 0x98
+#define BMP280_REGISTER_DIG_P7 0x9A
+#define BMP280_REGISTER_DIG_P8 0x9C
+#define BMP280_REGISTER_DIG_P9 0x9E
 
-    BMP280_REGISTER_DIG_P1 = 0x8E,
-    BMP280_REGISTER_DIG_P2 = 0x90,
-    BMP280_REGISTER_DIG_P3 = 0x92,
-    BMP280_REGISTER_DIG_P4 = 0x94,
-    BMP280_REGISTER_DIG_P5 = 0x96,
-    BMP280_REGISTER_DIG_P6 = 0x98,
-    BMP280_REGISTER_DIG_P7 = 0x9A,
-    BMP280_REGISTER_DIG_P8 = 0x9C,
-    BMP280_REGISTER_DIG_P9 = 0x9E,
+#define BMP280_REGISTER_CHIPID			0xD0
+#define BMP280_REGISTER_VERSION			0xD1
+#define BMP280_REGISTER_SOFTRESET		0xE0
+#define BMP280_REGISTER_CAL26			0xE1				/**< R calibration = 0xE1-0xF0 */
+#define BMP280_REGISTER_STATUS			0xF3
+#define BMP280_REGISTER_CONTROL			0xF4
+#define BMP280_REGISTER_CONFIG			0xF5
+#define BMP280_REGISTER_PRESSUREDATA	0xF7
+#define BMP280_REGISTER_TEMPDATA		0xFA
 
-    BMP280_REGISTER_CHIPID = 0xD0,
-    BMP280_REGISTER_VERSION = 0xD1,
-    BMP280_REGISTER_SOFTRESET = 0xE0,
-    BMP280_REGISTER_CAL26 = 0xE1,				/**< R calibration = 0xE1-0xF0 */
-    BMP280_REGISTER_STATUS = 0xF3,
-    BMP280_REGISTER_CONTROL = 0xF4,
-    BMP280_REGISTER_CONFIG = 0xF5,
-    BMP280_REGISTER_PRESSUREDATA = 0xF7,
-    BMP280_REGISTER_TEMPDATA = 0xFA
-} bmp280_registers;
 
 /**************************************************************************/
 /*!
     @brief  sampling rates
 */
 /**************************************************************************/
-typedef enum {
-    /** No over-sampling. */
-    SAMPLING_NONE = 0x00,
+/** No over-sampling. */
+#define SAMPLING_NONE 0x00
 
-    /** 1x over-sampling. */
-    SAMPLING_X1 = 0x01,
+/** 1x over-sampling. */
+#define SAMPLING_X1 0x01
 
-    /** 2x over-sampling. */
-    SAMPLING_X2 = 0x02,
+/** 2x over-sampling. */
+#define SAMPLING_X2 0x02
 
-    /** 4x over-sampling. */
-    SAMPLING_X4 = 0x03,
+/** 4x over-sampling. */
+#define SAMPLING_X4 0x03
 
-    /** 8x over-sampling. */
-    SAMPLING_X8 = 0x04,
+/** 8x over-sampling. */
+#define SAMPLING_X8 0x04
 
-    /** 16x over-sampling. */
-    SAMPLING_X16 = 0x05
-} sensor_sampling;
+/** 16x over-sampling. */
+#define SAMPLING_X16 0x05
 
 /**************************************************************************/
 /*!
     @brief  power modes
 */
 /**************************************************************************/
-typedef enum {
-    /** Sleep mode. */
-    MODE_SLEEP = 0x00,
 
-    /** Forced mode. */
-    MODE_FORCED = 0x01,
+/** Sleep mode. */
+#define MODE_SLEEP 0x00
 
-    /** Normal mode. */
-    MODE_NORMAL = 0x03,
+/** Forced mode. */
+#define MODE_FORCED 0x01
 
-    /** Software reset. */
-    MODE_SOFT_RESET_CODE = 0xB6
-} sensor_mode;
+/** Normal mode. */
+#define MODE_NORMAL 0x03
+
+/** Software reset. */
+#define MODE_SOFT_RESET_CODE 0xB6
 
 /**************************************************************************/
 /*!
     @brief  filter values
 */
 /**************************************************************************/
-typedef enum {
-    /** No filtering. */
-    FILTER_OFF = 0x00,
 
-    /** 2x filtering. */
-    FILTER_X2 = 0x01,
+/** No filtering. */
+#define FILTER_OFF 0x00
 
-    /** 4x filtering. */
-    FILTER_X4 = 0x02,
+/** 2x filtering. */
+#define FILTER_X2 0x01
 
-    /** 8x filtering. */
-    FILTER_X8 = 0x03,
+/** 4x filtering. */
+#define FILTER_X4 0x02
 
-    /** 16x filtering. */
-    FILTER_X16 = 0x04
-} sensor_filter;
+/** 8x filtering. */
+#define FILTER_X8 0x03
+
+/** 16x filtering. */
+#define FILTER_X16 0x04
 
 /**************************************************************************/
 /*!
     @brief  standby duration in ms
 */
 /**************************************************************************/
-typedef enum  {
-    /** 1 ms standby. */
-    STANDBY_MS_1 = 0x00,
 
-    /** 62.5 ms standby. */
-    STANDBY_MS_63 = 0x01,
+/** 1 ms standby. */
+#define STANDBY_MS_1 0x00
 
-    /** 125 ms standby. */
-    STANDBY_MS_125 = 0x02,
+/** 62.5 ms standby. */
+#define STANDBY_MS_63 0x01
 
-    /** 250 ms standby. */
-    STANDBY_MS_250 = 0x03,
+/** 125 ms standby. */
+#define STANDBY_MS_125 0x02
 
-    /** 500 ms standby. */
-    STANDBY_MS_500 = 0x04,
+/** 250 ms standby. */
+#define STANDBY_MS_250 0x03
 
-    /** 1000 ms standby. */
-    STANDBY_MS_1000 = 0x05,
+/** 500 ms standby. */
+#define STANDBY_MS_500 0x04
 
-    /** 2000 ms standby. */
-    STANDBY_MS_2000 = 0x06,
+/** 1000 ms standby. */
+#define STANDBY_MS_1000 0x05
 
-    /** 4000 ms standby. */
-    STANDBY_MS_4000 = 0x07
-} standby_duration;
+/** 2000 ms standby. */
+#define STANDBY_MS_2000 0x06
+
+/** 4000 ms standby. */
+#define STANDBY_MS_4000 0x07
 
 /**************************************************************************/
 /*!
@@ -164,77 +160,6 @@ struct bmp280_calib_data {
     int16_t dig_P9;				/**< dig_P9 cal register. */
 } ;
 
-/**************************************************************************/
-/*!
-    @brief  config struct type definition
-*/
-/**************************************************************************/
-struct config {
-    // inactive duration (standby time) in normal mode
-    // 000 = 0.5 ms
-    // 001 = 62.5 ms
-    // 010 = 125 ms
-    // 011 = 250 ms
-    // 100 = 500 ms
-    // 101 = 1000 ms
-    // 110 = 10 ms
-    // 111 = 20 ms
-    unsigned int t_sb;
-
-    // filter settings
-    // 000 = filter off
-    // 001 = 2x filter
-    // 010 = 4x filter
-    // 011 = 8x filter
-    // 100 and above = 16x filter
-    unsigned int filter;
-
-    // unused - don't set
-    unsigned int none;
-    unsigned int spi3w_en;
-
-    /// @return combined config register
-    // NOTE: C structs cannot have functions, so this function is not used
-    // Struct members will be read directly
-    //unsigned int get() { return (t_sb << 5) | (filter << 2) | spi3w_en; }
-} ;
-
-/**************************************************************************/
-/*!
-    @brief  ctrl_meas register
-*/
-/**************************************************************************/
-struct ctrl_meas {
-    // temperature oversampling
-    // 000 = skipped
-    // 001 = x1
-    // 010 = x2
-    // 011 = x4
-    // 100 = x8
-    // 101 and above = x16
-    unsigned int osrs_t;
-
-    // pressure oversampling
-    // 000 = skipped
-    // 001 = x1
-    // 010 = x2
-    // 011 = x4
-    // 100 = x8
-    // 101 and above = x16
-    unsigned int osrs_p;
-
-    // device mode
-    // 00       = sleep
-    // 01 or 10 = forced
-    // 11       = normal
-    unsigned int mode;
-
-    /// @return combined ctrl register
-    // NOTE: C structs cannot have functions, so this function is not used
-    //unsigned int get() { return (osrs_t << 5) | (osrs_p << 2) | mode; }
-};
-
-
 /*=========================================================================*/
 
 int bmp280_init(void);
@@ -246,8 +171,8 @@ int16_t readS16(uint8_t reg) ;
 int16_t readS16_LE(uint8_t reg);
 uint32_t read24(uint8_t reg);
 uint8_t spixfer(uint8_t x);
-void read_coefficients(void);
-void set_sampling(sensor_mode mode, sensor_sampling temp_sampling,
-                  sensor_sampling press_sampling, sensor_filter filter, standby_duration duration);
+void print_coefficients(void);
 int32_t bmp280_read_temperature(void);
 int64_t bmp280_read_pressure(void);
+void bmp280_set_ctrl(uint8_t osrs_t, uint8_t osrs_p, uint8_t mode);
+void bmp280_set_config(uint8_t t_sb, uint8_t filter, uint8_t spi3w_en);

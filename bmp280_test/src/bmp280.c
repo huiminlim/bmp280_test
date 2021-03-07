@@ -6,25 +6,12 @@
 */
 
 #include <bmp280.h>
-#include <spi.h>
-#include <uart.h>
-#include <delay.h>
+
+// Debug macro
+//#define BMP280_DEBUG
 
 // Structs defined
 struct bmp280_calib_data bmp280_calib_data_read;
-
-struct config config_reg = {
-    .t_sb = 3,					///< inactive duration (standby time) in normal mode
-    .filter = 3,				///< filter settings
-    .none = 1,					///< unused - don't set
-    .spi3w_en = 1				///< unused - don't set
-};								//!< config register object
-
-struct ctrl_meas meas_reg = {
-    .osrs_t = 3,				///< temperature oversampling
-    .osrs_p = 3,				///< pressure oversampling
-    .mode = 2					///< device mode
-};								//!< measurement register object
 
 int32_t t_fine = 0;
 
@@ -37,22 +24,30 @@ int bmp280_init(void) {
     //Check if read successfully from sensor ID
     uint8_t sensor_id = read8(BMP280_REGISTER_CHIPID);
 
-    printf("Sensor ID: 0x%x\r\n", sensor_id);
+    // Debugging
+#ifdef BMP280_DEBUG
+    printf("Sensor ID: 0x%x\r\n\r\n", sensor_id);
+#endif
 
     if (sensor_id != BMP280_CHIPID) {
         return BMP280_INIT_ERR;
     }
 
-    // read trimming parameters
-    // See Datasheet 4.2.2
-    read_coefficients();
-
     // Set default sampling
-    //set_sampling(MODE_NORMAL, SAMPLING_X2, SAMPLING_X16, FILTER_X16, STANDBY_MS_500);
+    bmp280_set_config(0, 4, 0); // 0.5 ms delay, 16x filter, 3-wire SPI
+    bmp280_set_ctrl(2, 5, 3); // T oversample x2, P over x2, normal mode
 
     delay_ms(200);
 
     return BMP280_INIT_NO_ERR;
+}
+
+void bmp280_set_ctrl(uint8_t osrs_t, uint8_t osrs_p, uint8_t mode) {
+    write8(BMP280_REGISTER_CONTROL, ((osrs_t & 0x7) << 5) | ((osrs_p & 0x7) << 2) | (mode & 0x3));
+}
+
+void bmp280_set_config(uint8_t t_sb, uint8_t filter, uint8_t spi3w_en) {
+    write8(BMP280_REGISTER_CONTROL, ((t_sb & 0x7) << 5) | ((filter & 0x7) << 2) | (spi3w_en & 1));
 }
 
 /*!
@@ -62,12 +57,16 @@ int bmp280_init(void) {
 int32_t bmp280_read_temperature(void) {
     int32_t var1, var2;
     int32_t adc_T = read24(BMP280_REGISTER_TEMPDATA);
-    //printf("adc: %ld\r\n", adc_T);
 
-    // Problem is here
+#ifdef BMP280_DEBUG
+    printf("adc: %ld\r\n", adc_T);
+#endif
+
     adc_T = (adc_T >> 4);
 
-    //printf("adc: %ld\r\n", adc_T);
+#ifdef BMP280_DEBUG
+    printf("adc: %ld\r\n", adc_T);
+#endif
 
     // Calibrate the temperature sensor data
     var1 = ((((adc_T >> 3) - ((int32_t)bmp280_calib_data_read.dig_T1 << 1))) *
@@ -77,12 +76,22 @@ int32_t bmp280_read_temperature(void) {
                   int32_t)bmp280_calib_data_read.dig_T1))) >>
              12) * ((int32_t)bmp280_calib_data_read.dig_T3)) >> 14;
 
-    //printf("Prev t_fine: %ld\r\n", t_fine);
+#ifdef BMP280_DEBUG
+    printf("Prev t_fine: %ld\r\n", t_fine);
+#endif
+
     t_fine = var1 + var2;
-    //printf("Curr t_fine: %ld\r\n", t_fine);
+
+#ifdef BMP280_DEBUG
+    printf("Curr t_fine: %ld\r\n", t_fine);
+#endif
+
     int32_t T = (t_fine * 5 + 128) >> 8;
 
-    //printf("T: %ld\r\n", T);
+#ifdef BMP280_DEBUG
+    printf("T: %ld\r\n", T);
+#endif
+
     return T;
 }
 
@@ -119,21 +128,20 @@ int64_t bmp280_read_pressure(void) {
 
     p = ((p + var1 + var2) >> 8) + (((int64_t) bmp280_calib_data_read.dig_P7) << 4);
 
-    //printf("p = %ld", p);
     return p;
 }
 
 /*!
      @brief  Reads the factory-set coefficients
 */
-void read_coefficients(void) {
+void print_coefficients(void) {
     bmp280_calib_data_read.dig_T1 = read16_LE(BMP280_REGISTER_DIG_T1);
     bmp280_calib_data_read.dig_T2 = readS16_LE(BMP280_REGISTER_DIG_T2);
     bmp280_calib_data_read.dig_T3 = readS16_LE(BMP280_REGISTER_DIG_T3);
 
-    printf("\r\nbmp280_calib_data_read.dig_T1: %d\r\n", bmp280_calib_data_read.dig_T1);
-    printf("bmp280_calib_data_read.dig_T2: %d\r\n", bmp280_calib_data_read.dig_T2);
-    printf("bmp280_calib_data_read.dig_T3: %d\r\n\r\n", bmp280_calib_data_read.dig_T3);
+    //printf("\r\nbmp280_calib_data_read.dig_T1: %d\r\n", bmp280_calib_data_read.dig_T1);
+    //printf("bmp280_calib_data_read.dig_T2: %d\r\n", bmp280_calib_data_read.dig_T2);
+    //printf("bmp280_calib_data_read.dig_T3: %d\r\n\r\n", bmp280_calib_data_read.dig_T3);
 
     //bmp280_calib_data_read.dig_P1 = read16_LE(BMP280_REGISTER_DIG_P1);
     //bmp280_calib_data_read.dig_P2 = readS16_LE(BMP280_REGISTER_DIG_P2);
@@ -144,62 +152,6 @@ void read_coefficients(void) {
     //bmp280_calib_data_read.dig_P7 = readS16_LE(BMP280_REGISTER_DIG_P7);
     //bmp280_calib_data_read.dig_P8 = readS16_LE(BMP280_REGISTER_DIG_P8);
     //bmp280_calib_data_read.dig_P9 = readS16_LE(BMP280_REGISTER_DIG_P9);
-}
-
-/*!
-     @brief  setup sensor with given parameters / settings
-
-     This is simply a overload to the normal begin()-function, so SPI users
-     don't get confused about the library requiring an address.
-     @param mode the power mode to use for the sensor
-     @param tempSampling the temp sampling rate to use
-     @param pressSampling the pressure sampling rate to use
-     @param humSampling the humidity sampling rate to use
-     @param filter the filter mode to use
-     @param duration the standby duration to use
-*/
-void set_sampling(sensor_mode mode,
-                  sensor_sampling temp_sampling,
-                  sensor_sampling press_sampling,
-                  sensor_filter filter, standby_duration duration) {
-
-    meas_reg.mode = mode;
-    meas_reg.osrs_t = temp_sampling;
-    meas_reg.osrs_p = press_sampling;
-
-    config_reg.filter = filter;
-    config_reg.t_sb = duration;
-
-    if (meas_reg.mode == MODE_NORMAL) {
-        printf("Mode correct\r\n");
-    }
-
-    if (meas_reg.osrs_t == SAMPLING_X2) {
-        printf("Temp sampling correct\r\n");
-    }
-
-    if (meas_reg.osrs_p == SAMPLING_X16) {
-        printf("Pressure sampling correct\r\n");
-    }
-
-    if (config_reg.filter == FILTER_X16) {
-        printf("Filtering correct\r\n");
-    }
-
-    if (config_reg.t_sb == STANDBY_MS_500) {
-        printf("Standby time correct\r\n");
-    }
-
-    // you must make sure to also set REGISTER_CONTROL after setting the
-    // CONTROLHUMID register, otherwise the values won't be applied (see
-    // DS 5.4.3)
-    //write8(BME280_REGISTER_CONFIG, _configReg.get());
-    unsigned int config_reg_val = ((config_reg.t_sb << 5) | (config_reg.filter << 2) | config_reg.spi3w_en);
-    write8(BMP280_REGISTER_CONFIG, config_reg_val);
-
-    //write8(BME280_REGISTER_CONTROL, _measReg.get());
-    unsigned int meas_reg_val = ((meas_reg.osrs_t << 5) | (meas_reg.osrs_p << 2) | meas_reg.mode);
-    write8(BMP280_REGISTER_CONTROL, meas_reg_val);
 }
 
 /*
@@ -336,6 +288,8 @@ uint8_t spixfer(uint8_t x) {
 
     return SPDR;
 }
+
+
 
 
 
